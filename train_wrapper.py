@@ -25,7 +25,7 @@ def train_model_TinyStories(d_model=512,h=16,d_ff=1344,vocab_size=10000,context_
     print("text saving successful")
 
     print("start training BPE")
-    vocab ,merges=BPE_tokenizer.train_bpe(r"TinyStories.txt",vocab_size,["<|endoftext|>"])
+    vocab, merges = BPE_tokenizer.train_bpe(str(text_path), vocab_size, ["<|endoftext|>"])
     print("training BPE successful")
 
     print("start tokenizing")
@@ -77,4 +77,5 @@ def train_model_TinyStories(d_model=512,h=16,d_ff=1344,vocab_size=10000,context_
     print("finished model saving")
 
 if __name__ == "__main__":
+
     train_model_TinyStories()
