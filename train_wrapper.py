@@ -4,6 +4,7 @@ import optimizer
 import data_process
 import torch
 from pathlib import Path
+import numpy as np
 
 from datasets import load_dataset
 
@@ -20,18 +21,53 @@ def train_model_TinyStories(d_model=512,h=16,d_ff=1344,vocab_size=10000,context_
     print("start text saving")
     text=dataset["train"]["text"]
     text_path = data_dir / "TinyStories.txt"
+    token_path = data_dir / "TinyStories_tokens.int32"
     with open(text_path, "w", encoding="utf-8") as f:
         f.write("\n".join(text))
     print("text saving successful")
 
-    print("start training BPE")
-    vocab, merges = BPE_tokenizer.train_bpe(str(text_path), vocab_size, ["<|endoftext|>"])
-    print("training BPE successful")
+    vocab_file = data_dir / "TinyStories_vocab.txt"
+    merges_file = data_dir / "TinyStories_merges.txt"
+
+    #one-time training of BPE
+    #print("start training BPE")
+    #bpe_text=dataset["train"].select(range(100_000))["text"]
+    #bpe_text_path = data_dir / "TinyStories_100k.txt"
+    #with open(bpe_text_path, "w", encoding="utf-8") as f:
+        #f.write("\n".join(bpe_text))
+    #print("text saving successful")
+    #vocab, merges = BPE_tokenizer.train_bpe(str(bpe_text_path), vocab_size, ["<|endoftext|>"])
+    #print("training BPE successful")
+
+    #BPE_tokenizer.bpe_tokenizer.save_tokenizer(vocab, merges, vocab_file, merges_file)
+    #print(f"saved tokenizer to {vocab_file} and {merges_file}")
+    #end training
 
     print("start tokenizing")
-    raw_text=data_process.modify_raw_text(text)
-    tokenizer=BPE_tokenizer.bpe_tokenizer(vocab,merges, ["<|endoftext|>"])
-    raw_tokens=tokenizer.encode(raw_text)
+    tokenizer=BPE_tokenizer.bpe_tokenizer.from_files(
+        vocab_filepath=str(vocab_file),
+        merges_filepath=str(merges_file),
+        special_tokens=["<|endoftext|>"],
+    )
+    with open(text_path, "r", encoding="utf-8") as fin, \
+            open(token_path, "wb") as fout:
+
+        for line in fin:
+            line = line.rstrip("\n")
+
+            raw_text = data_process.modify_raw_text(line)
+            token_ids = tokenizer.encode(raw_text)
+
+            np.array(token_ids, dtype=np.int32).tofile(fout)
+
+            end_id = tokenizer.encode("<|endoftext|>")[0]
+            np.array([end_id], dtype=np.int32).tofile(fout)
+
+    raw_tokens = np.memmap(
+        token_path,
+        dtype=np.int32,
+        mode="r"
+    )
     print("tokenizing successful")
     print("num of tokens ", len(raw_tokens))
     print("tokens per epoch", batch_num*batch_size*context_length)
@@ -77,5 +113,5 @@ def train_model_TinyStories(d_model=512,h=16,d_ff=1344,vocab_size=10000,context_
     print("finished model saving")
 
 if __name__ == "__main__":
-
     train_model_TinyStories()
+
