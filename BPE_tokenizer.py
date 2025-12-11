@@ -1,5 +1,5 @@
-
 import regex as re
+from pathlib import Path
 
 PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
 
@@ -14,20 +14,13 @@ def train_bpe(input_path:str,vocab_size:int,special_tokens:list[str]):
   for token in special_tokens:
       vocab_dict[len(vocab_dict)] = token.encode("utf-8")
 
-  #read file
-  raw_text=open(input_path,'r', encoding="utf-8").read()
-
-  #pre tokenize
-  raw_text=re.findall(PAT, raw_text)
-
-  #first pass
-  word_dict=dict()
-  for word in raw_text:
-    word=tuple(word.encode("utf-8"))
-    if word in word_dict:
-      word_dict[word]+=1
-    else:
-      word_dict[word]=1
+  word_dict = dict()
+  with open(input_path, "r", encoding="utf-8") as f:
+      for line in f:
+          # tokenize this line only
+          for word in re.findall(PAT, line):
+              w = tuple(word.encode("utf-8"))
+              word_dict[w] = word_dict.get(w, 0) + 1
 
   #merge
   merges=[]
@@ -197,3 +190,25 @@ class bpe_tokenizer:
     for num in ids:
       chunks.append(self.vocab[num])
     return b"".join(chunks).decode("utf-8")
+
+  def save_tokenizer(vocab: dict[int, bytes],
+               merges: list[tuple[bytes, bytes]],
+               vocab_filepath: str,
+               merges_filepath: str):
+      """Save vocab and merges to disk in the format expected by bpe_tokenizer.from_files."""
+      vocab_filepath = Path(vocab_filepath)
+      merges_filepath = Path(merges_filepath)
+
+      # Make sure directory exists
+      vocab_filepath.parent.mkdir(parents=True, exist_ok=True)
+      merges_filepath.parent.mkdir(parents=True, exist_ok=True)
+
+      # Save vocab: id<TAB>hex
+      with open(vocab_filepath, "w", encoding="utf-8") as f:
+          for idx, byte_seq in sorted(vocab.items(), key=lambda x: x[0]):
+              f.write(f"{idx}\t{byte_seq.hex()}\n")
+
+      # Save merges: hex1<TAB>hex2
+      with open(merges_filepath, "w", encoding="utf-8") as f:
+          for (b1, b2) in merges:
+              f.write(f"{b1.hex()}\t{b2.hex()}\n")
