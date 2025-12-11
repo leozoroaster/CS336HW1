@@ -18,13 +18,13 @@ def train_model_TinyStories(d_model=512,h=16,d_ff=1344,vocab_size=10000,context_
     dataset=load_dataset("roneneldan/TinyStories")
     print("dataset loading successful")
 
-    #print("start text saving")
-    #text=dataset["train"]["text"]
+    print("start text saving")
+    text=dataset["train"]["text"]
     text_path = data_dir / "TinyStories.txt"
-    #token_path = data_dir / "TinyStories_tokens.int32"
-    #with open(text_path, "w", encoding="utf-8") as f:
-        #f.write("\n".join(text))
-    #print("text saving successful")
+    token_path = data_dir / "TinyStories_tokens.int32"
+    with open(text_path, "w", encoding="utf-8") as f:
+        f.write("\n".join(text))
+    print("text saving successful")
 
     vocab_file = data_dir / "TinyStories_vocab.txt"
     merges_file = data_dir / "TinyStories_merges.txt"
@@ -114,5 +114,6 @@ def train_model_TinyStories(d_model=512,h=16,d_ff=1344,vocab_size=10000,context_
 
 if __name__ == "__main__":
     train_model_TinyStories()
+
 
 
