@@ -7,6 +7,23 @@ from pathlib import Path
 import numpy as np
 
 from datasets import load_dataset
+from multiprocessing import Pool
+_tokenizer = None
+_end_id = None
+
+def init_worker(tokenizer_state):
+    global _tokenizer, _end_id
+
+    _tokenizer = tokenizer_state
+
+    _end_id = _tokenizer.encode("<|endoftext|>")[0]
+
+def process_line(line: str) -> np.ndarray:
+    line = line.rstrip("\n")
+    raw_text = data_process.modify_raw_text(line)
+    token_ids = _tokenizer.encode(raw_text)
+    token_ids.append(_end_id)
+    return np.array(token_ids, dtype=np.int32)
 
 def train_model_TinyStories(d_model=512,h=16,d_ff=1344,vocab_size=10000,context_length=256,num_layers=4,theta=10000,raw_lr=1e-3,decay=1e-4,epoch_num=20,batch_num=256,batch_size=64,data_dir="data", save_dir="checkpoints",device=None):
     data_dir = Path(data_dir)
@@ -49,19 +66,18 @@ def train_model_TinyStories(d_model=512,h=16,d_ff=1344,vocab_size=10000,context_
         merges_filepath=str(merges_file),
         special_tokens=["<|endoftext|>"],
     )
-    with open(text_path, "r", encoding="utf-8") as fin, \
-            open(token_path, "wb") as fout:
+    print("tokenizer initiated")
+    if __name__ == "__main__":
+        tokenizer_state = tokenizer
 
-        for line in fin:
-            line = line.rstrip("\n")
+        num_workers = 8  # use 8 vCPUs
 
-            raw_text = data_process.modify_raw_text(line)
-            token_ids = tokenizer.encode(raw_text)
+        with open(text_path, "r", encoding="utf-8") as fin, \
+                open(token_path, "wb") as fout, \
+                Pool(processes=num_workers, initializer=init_worker, initargs=(tokenizer_state,)) as pool:
 
-            np.array(token_ids, dtype=np.int32).tofile(fout)
-
-            end_id = tokenizer.encode("<|endoftext|>")[0]
-            np.array([end_id], dtype=np.int32).tofile(fout)
+            for token_arr in pool.imap(process_line, fin, chunksize=64):
+                token_arr.tofile(fout)
 
     raw_tokens = np.memmap(
         token_path,
@@ -114,6 +130,7 @@ def train_model_TinyStories(d_model=512,h=16,d_ff=1344,vocab_size=10000,context_
 
 if __name__ == "__main__":
     train_model_TinyStories()
+
 
 
 
